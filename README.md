@@ -17,6 +17,8 @@ Sherlock Holmes*, *The Art of War*, and more — read aloud by
   forward 30s, scrubbable seek bar, variable playback speed (0.75×–2×), full
   chapter list, and [Media Session](https://developer.mozilla.org/docs/Web/API/Media_Session_API)
   support so lock-screen & hardware media keys work.
+- **Author context** — each book page fetches a short biography of its author
+  from Wikipedia for a little historical background, with a link to read more.
 - **Favorites** — save books to a private shelf, kept in `localStorage`.
 - **Resume where you left off** — listening progress (chapter + position) is
   saved automatically and surfaced as a "Continue listening" shelf.
@@ -37,6 +39,7 @@ site. All book data is fetched **in the browser** from the
 | Book + chapters | `https://archive.org/metadata/{id}` |
 | Stream audio | `https://archive.org/download/{id}/{file}.mp3` |
 | Cover art | `https://archive.org/services/img/{id}` |
+| Author biography | `https://en.wikipedia.org/w/rest.php/v1/search/title` + `…/api/rest_v1/page/summary/{title}` |
 
 > The Internet Archive is used instead of `librivox.org/api` because the latter
 > does not send CORS headers and so cannot be called from a static client-only
@@ -55,6 +58,7 @@ src/
     about.astro             # colophon
   scripts/
     api.js                  # Internet Archive client + formatting helpers
+    wikipedia.js            # Wikipedia client: author biography lookup
     store.js                # localStorage: favorites + progress
     ui.js                   # shared DOM/card rendering helpers
   styles/

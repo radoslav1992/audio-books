@@ -1,0 +1,68 @@
+---
+import '../styles/global.css';
+
+const { title = 'Foxed & Foxing — Vintage Audiobooks', description = 'A vintage reading room of free public-domain audiobooks: classic literature read aloud by LibriVox volunteers, paired with Project Gutenberg texts. Listen in your browser — no account needed.' } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const baseClean = base.replace(/\/$/, '');
+const isActive = (href: string) => {
+  const target = (baseClean + href).replace(/\/$/, '') || '/';
+  return path === target ? 'is-active' : '';
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="masthead__inner">
+        <a class="brand" href={base} aria-label="Home">
+          <span class="brand__mark">❦</span>
+          <span class="brand__name">Foxed<b>&amp;</b>Foxing</span>
+        </a>
+        <nav class="nav">
+          <a href={base} class={isActive('/')}>Library</a>
+          <a href={`${baseClean}/favorites`} class={isActive('/favorites')}>Favorites</a>
+          <a href={`${baseClean}/about`} class={isActive('/about')}>About</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="foot">
+      <div class="foot__inner">
+        <div class="ornament"><span>❧</span></div>
+        <p>
+          Audio read aloud by the volunteers of
+          <a href="https://librivox.org" target="_blank" rel="noopener">LibriVox</a>;
+          texts from
+          <a href="https://www.gutenberg.org" target="_blank" rel="noopener">Project Gutenberg</a>,
+          served via the
+          <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>.
+        </p>
+        <p class="foot__credit">
+          All works are in the public domain. Built as a fully client-side reading room — your favorites
+          &amp; progress never leave this browser.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,181 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout>
+  <section class="hero wrap">
+    <p class="eyebrow">A vintage listening room</p>
+    <h1>Classic books, <em>read aloud</em>.</h1>
+    <p class="hero__lead">
+      Thousands of public-domain audiobooks — from <i>Sherlock Holmes</i> to <i>The Art of War</i> —
+      narrated by LibriVox volunteers and paired with Project Gutenberg texts. Free, in your browser.
+    </p>
+
+    <form class="search" id="search-form" role="search">
+      <input
+        id="search-input"
+        type="search"
+        name="q"
+        placeholder="Search by title, author or subject…"
+        autocomplete="off"
+        aria-label="Search audiobooks"
+      />
+      <button class="btn" type="submit">Search</button>
+    </form>
+
+    <div class="chips" id="chips" aria-label="Browse by subject">
+      <button class="chip" data-q="Sherlock Holmes">Sherlock Holmes</button>
+      <button class="chip" data-q="adventure">Adventure</button>
+      <button class="chip" data-q="mystery detective">Mystery</button>
+      <button class="chip" data-q="poetry">Poetry</button>
+      <button class="chip" data-q="philosophy">Philosophy</button>
+      <button class="chip" data-q="science fiction">Sci-Fi</button>
+      <button class="chip" data-q="fairy tales">Fairy Tales</button>
+      <button class="chip" data-q="horror gothic">Gothic</button>
+    </div>
+    <div class="ornament"><span>✦ ✦ ✦</span></div>
+  </section>
+
+  <!-- Continue listening (only rendered when progress exists) -->
+  <section class="section wrap hidden" id="continue-section">
+    <div class="section__head">
+      <h2>Continue listening</h2>
+    </div>
+    <div class="grid" id="continue-grid"></div>
+  </section>
+
+  <!-- Main browsable shelf -->
+  <section class="section wrap">
+    <div class="section__head">
+      <h2 id="shelf-title">Most loved</h2>
+      <select class="sort" id="sort" aria-label="Sort books">
+        <option value="downloads desc">Most popular</option>
+        <option value="avg_rating desc">Highest rated</option>
+        <option value="addeddate desc">Recently added</option>
+        <option value="titleSorter asc">Title A–Z</option>
+      </select>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="loadmore">
+      <button class="btn btn--ghost hidden" id="load-more">Load more books</button>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { searchBooks } from '../scripts/api.js';
+  import { renderGrid, bookCardHTML, progressCardHTML } from '../scripts/ui.js';
+  import { getAllProgress } from '../scripts/store.js';
+
+  const grid = document.getElementById('grid');
+  const shelfTitle = document.getElementById('shelf-title');
+  const sortSel = document.getElementById('sort') as HTMLSelectElement;
+  const loadMore = document.getElementById('load-more') as HTMLButtonElement;
+  const form = document.getElementById('search-form') as HTMLFormElement;
+  const input = document.getElementById('search-input') as HTMLInputElement;
+
+  const state = { query: '', sort: 'downloads desc', page: 1, total: 0, loading: false };
+
+  function skeletons(n) {
+    return Array.from({ length: n }, () => '<div class="skeleton"></div>').join('');
+  }
+
+  async function load({ reset }) {
+    if (state.loading) return;
+    state.loading = true;
+    loadMore.disabled = true;
+
+    if (reset) {
+      state.page = 1;
+      grid.innerHTML = skeletons(12);
+    } else {
+      loadMore.innerHTML = '<span class="spin">❧</span> Loading…';
+    }
+
+    try {
+      const { books, total } = await searchBooks({
+        query: state.query,
+        sort: state.sort,
+        page: state.page,
+        rows: 24,
+      });
+      state.total = total;
+
+      if (reset) {
+        renderGrid(grid, books);
+      } else {
+        grid.insertAdjacentHTML('beforeend', books.map(bookCardHTML).join(''));
+      }
+
+      const shown = state.page * 24;
+      loadMore.classList.toggle('hidden', shown >= total || books.length === 0);
+      loadMore.innerHTML = 'Load more books';
+    } catch (err) {
+      console.error(err);
+      if (reset) {
+        grid.innerHTML =
+          '<p class="error">The library shelf could not be reached. Please check your connection and try again.</p>';
+      }
+    } finally {
+      state.loading = false;
+      loadMore.disabled = false;
+    }
+  }
+
+  function setQuery(q) {
+    state.query = q.trim();
+    input.value = state.query;
+    shelfTitle.textContent = state.query ? `Results for “${state.query}”` : 'Most loved';
+    // keep the URL shareable
+    const url = new URL(location.href);
+    if (state.query) url.searchParams.set('q', state.query);
+    else url.searchParams.delete('q');
+    history.replaceState(null, '', url);
+    load({ reset: true });
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    setQuery(input.value);
+  });
+
+  document.getElementById('chips').addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.chip') as HTMLElement | null;
+    if (btn) {
+      setQuery(btn.dataset.q || '');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+
+  sortSel.addEventListener('change', () => {
+    state.sort = sortSel.value;
+    load({ reset: true });
+  });
+
+  loadMore.addEventListener('click', () => {
+    state.page += 1;
+    load({ reset: false });
+  });
+
+  // Continue-listening shelf from localStorage
+  function renderContinue() {
+    const progress = getAllProgress().slice(0, 6);
+    const section = document.getElementById('continue-section');
+    const cgrid = document.getElementById('continue-grid');
+    if (!progress.length) {
+      section.classList.add('hidden');
+      return;
+    }
+    section.classList.remove('hidden');
+    cgrid.innerHTML = progress.map(progressCardHTML).join('');
+  }
+
+  // Boot
+  const initialQ = new URL(location.href).searchParams.get('q') || '';
+  if (initialQ) {
+    state.query = initialQ;
+    input.value = initialQ;
+    shelfTitle.textContent = `Results for “${initialQ}”`;
+  }
+  renderContinue();
+  load({ reset: true });
+</script>

@@ -1,0 +1,45 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="About — Foxed & Foxing">
+  <section class="hero wrap" style="padding-bottom: 8px;">
+    <p class="eyebrow">Colophon</p>
+    <h1>About this <em>reading room</em></h1>
+    <div class="ornament"><span>❧</span></div>
+  </section>
+
+  <section class="section wrap" style="max-width: 740px;">
+    <p class="book__desc" style="max-width: none;">
+      <b>Foxed &amp; Foxing</b> is a small, lovingly-typeset web player for the world’s
+      public-domain audiobooks. Every recording here was read aloud by a volunteer at
+      <a href="https://librivox.org" target="_blank" rel="noopener">LibriVox</a>, whose mission is to
+      record every book in the public domain. The accompanying texts come from
+      <a href="https://www.gutenberg.org" target="_blank" rel="noopener">Project Gutenberg</a>.
+    </p>
+    <p class="book__desc" style="max-width: none;">
+      The catalogue is fetched live from the
+      <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>’s
+      <code>librivoxaudio</code> collection, which mirrors LibriVox and exposes a fast,
+      CORS-friendly search API. That means this entire site is <i>completely client-side</i>:
+      there is no server, no database, and no tracking. The pages are static HTML; the books
+      stream straight from the Archive to your browser.
+    </p>
+
+    <h2 style="margin-top: 32px;">Your data stays yours</h2>
+    <p class="book__desc" style="max-width: none;">
+      Favorites and listening progress are stored in your browser’s <code>localStorage</code>.
+      They never leave this device and are never sent anywhere. Clear your browser data and they’re gone.
+    </p>
+
+    <h2 style="margin-top: 32px;">A note on the name</h2>
+    <p class="book__desc" style="max-width: none;">
+      <i>Foxing</i> is the word antiquarians use for the warm, rust-coloured spots that bloom on the
+      pages of old books with age — the same hue as the terracotta you’ll find throughout this site.
+    </p>
+
+    <div class="ornament" style="margin-top: 36px;"><span>✦ ✦ ✦</span></div>
+    <p class="center" style="margin-top: 18px;">
+      <a class="btn" href={import.meta.env.BASE_URL}>Enter the library →</a>
+    </p>
+  </section>
+</Layout>

@@ -1,0 +1,16 @@
+{
+  "name": "vintage-audiobooks",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A vintage, fully client-side audiobook player powered by LibriVox & Project Gutenberg via the Internet Archive.",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^6.4.2"
+  }
+}

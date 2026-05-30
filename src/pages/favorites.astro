@@ -1,0 +1,101 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Your Favorites — Foxed & Foxing">
+  <section class="hero wrap" style="padding-bottom: 8px;">
+    <p class="eyebrow">Your private shelf</p>
+    <h1>Favorites &amp; bookmarks</h1>
+    <p class="hero__lead">
+      Everything you’ve saved or started, kept right here in your browser — no account, no cloud.
+    </p>
+    <div class="ornament"><span>✦ ✦ ✦</span></div>
+  </section>
+
+  <section class="section wrap hidden" id="continue-section">
+    <div class="section__head">
+      <h2>Continue listening</h2>
+    </div>
+    <div class="grid" id="continue-grid"></div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section__head">
+      <h2>Saved books</h2>
+      <button class="sort" id="clear-favs" type="button" title="Remove all favorites">Clear all</button>
+    </div>
+    <div class="grid" id="fav-grid"></div>
+  </section>
+</Layout>
+
+<script>
+  import { progressCardHTML } from '../scripts/ui.js';
+  import { esc, FALLBACK_COVER } from '../scripts/ui.js';
+  import {
+    getFavorites,
+    removeFavorite,
+    getAllProgress,
+    onStoreChange,
+  } from '../scripts/store.js';
+
+  const favGrid = document.getElementById('fav-grid');
+  const contSection = document.getElementById('continue-section');
+  const contGrid = document.getElementById('continue-grid');
+  const clearBtn = document.getElementById('clear-favs');
+  const base = import.meta.env.BASE_URL;
+
+  function favCardHTML(b) {
+    return `
+      <div class="card">
+        <a class="card__frame" href="${base}book?id=${encodeURIComponent(b.id)}"
+           aria-label="${esc(b.title)}">
+          <img class="card__cover" loading="lazy" src="${esc(b.cover)}" alt="Cover of ${esc(b.title)}"
+               onerror="this.onerror=null;this.src='${FALLBACK_COVER}'" />
+        </a>
+        <div class="card__body">
+          <a class="card__title" href="${base}book?id=${encodeURIComponent(b.id)}" style="color:inherit">${esc(b.title)}</a>
+          <span class="card__author">${esc(b.author)}</span>
+          <button class="desc-toggle" data-remove="${esc(b.id)}">✕ Remove</button>
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    const favs = getFavorites();
+    if (!favs.length) {
+      favGrid.innerHTML =
+        `<p class="empty">No favorites yet. Browse the <a href="${base}">library</a> and tap “Add to favorites”. ♡</p>`;
+      clearBtn.classList.add('hidden');
+    } else {
+      favGrid.innerHTML = favs.map(favCardHTML).join('');
+      clearBtn.classList.remove('hidden');
+    }
+
+    const progress = getAllProgress();
+    if (progress.length) {
+      contSection.classList.remove('hidden');
+      contGrid.innerHTML = progress.map(progressCardHTML).join('');
+    } else {
+      contSection.classList.add('hidden');
+    }
+  }
+
+  favGrid.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-remove]') as HTMLElement | null;
+    if (btn) {
+      e.preventDefault();
+      removeFavorite(btn.dataset.remove);
+      render();
+    }
+  });
+
+  clearBtn.addEventListener('click', () => {
+    if (confirm('Remove all saved favorites? Your listening progress will be kept.')) {
+      getFavorites().forEach((b) => removeFavorite(b.id));
+      render();
+    }
+  });
+
+  // re-render if another tab changes the store
+  onStoreChange(render);
+  render();
+</script>

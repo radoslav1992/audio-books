@@ -1,0 +1,328 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/player.css';
+---
+<Layout title="Now Playing — Foxed & Foxing">
+  <div class="wrap" id="book-root">
+    <p class="loading" id="book-loading"><span class="spin">❦</span>&nbsp; Opening the book…</p>
+  </div>
+
+  <!-- Template rendered once the book metadata arrives -->
+  <template id="book-template">
+    <article class="book">
+      <div class="book__art">
+        <img class="book__cover" data-cover alt="" />
+        <button class="btn btn--ghost fav" data-fav>
+          <span class="fav__heart">♡</span><span data-fav-label>Add to favorites</span>
+        </button>
+      </div>
+
+      <div class="book__info">
+        <span class="eyebrow">Audiobook · LibriVox</span>
+        <h1 class="book__title" data-title></h1>
+        <p class="book__author" data-author></p>
+        <div class="book__facts" data-facts></div>
+        <p class="book__desc is-clamped" data-desc></p>
+        <button class="desc-toggle hidden" data-desc-toggle>Read more ↓</button>
+        <div class="book__links" data-links></div>
+      </div>
+    </article>
+
+    <section class="player" data-player aria-label="Audio player">
+      <div class="player__now">
+        <span class="player__chapter" data-now-chapter>—</span>
+        <span class="player__book" data-now-book></span>
+      </div>
+      <div class="seek">
+        <span class="seek__time" data-current>0:00</span>
+        <input type="range" data-seek min="0" max="1000" value="0" step="1" aria-label="Seek" />
+        <span class="seek__time" data-duration>0:00</span>
+      </div>
+      <div class="controls">
+        <button class="ctrl" data-prev title="Previous chapter" aria-label="Previous chapter">⏮</button>
+        <button class="ctrl ctrl--skip" data-back title="Back 15 seconds" aria-label="Back 15 seconds">
+          <span>↺</span><span class="ctrl__label">15</span>
+        </button>
+        <button class="ctrl ctrl--play" data-play title="Play / pause" aria-label="Play or pause">▶</button>
+        <button class="ctrl ctrl--skip" data-fwd title="Forward 30 seconds" aria-label="Forward 30 seconds">
+          <span>↻</span><span class="ctrl__label">30</span>
+        </button>
+        <button class="ctrl" data-next title="Next chapter" aria-label="Next chapter">⏭</button>
+        <button class="rate" data-rate title="Playback speed">1×</button>
+      </div>
+    </section>
+
+    <section class="chapters wrap">
+      <h3>Chapters <span class="player__book" data-chapter-count></span></h3>
+      <ul class="chapter-list" data-chapters></ul>
+    </section>
+
+    <audio data-audio preload="metadata"></audio>
+  </template>
+</Layout>
+
+<script>
+  import { getBook, formatTime } from '../scripts/api.js';
+  import { esc, FALLBACK_COVER } from '../scripts/ui.js';
+  import {
+    isFavorite,
+    toggleFavorite,
+    getProgress,
+    saveProgress,
+  } from '../scripts/store.js';
+
+  const root = document.getElementById('book-root');
+  const id = new URL(location.href).searchParams.get('id');
+
+  if (!id) {
+    root.innerHTML = '<p class="error">No book selected. <a href="' + import.meta.env.BASE_URL + '">Return to the library →</a></p>';
+  } else {
+    boot(id).catch((err) => {
+      console.error(err);
+      root.innerHTML =
+        '<p class="error">This book could not be opened. It may have been moved. <a href="' +
+        import.meta.env.BASE_URL +
+        '">Back to the library →</a></p>';
+    });
+  }
+
+  async function boot(identifier) {
+    const book = await getBook(identifier);
+    if (!book.chapters.length) {
+      root.innerHTML = '<p class="error">No audio tracks were found for this title.</p>';
+      return;
+    }
+
+    document.title = `${book.title} — Foxed & Foxing`;
+
+    // Clone the template into the page.
+    const tpl = document.getElementById('book-template') as HTMLTemplateElement;
+    const frag = tpl.content.cloneNode(true) as DocumentFragment;
+    root.innerHTML = '';
+    root.appendChild(frag);
+
+    const $ = (sel) => root.querySelector(sel);
+
+    // ---- static metadata ----
+    const cover = $('[data-cover]') as HTMLImageElement;
+    cover.src = book.cover;
+    cover.alt = `Cover of ${book.title}`;
+    cover.onerror = () => { cover.onerror = null; cover.src = FALLBACK_COVER; };
+
+    $('[data-title]').textContent = book.title;
+    $('[data-author]').textContent = book.author;
+
+    const facts = [];
+    if (book.runtime) facts.push(`⏱ ${book.runtime}`);
+    facts.push(`${book.chapters.length} chapters`);
+    if (book.year) facts.push(`📅 ${book.year}`);
+    if (book.language) facts.push(book.language);
+    $('[data-facts]').innerHTML = facts.map((f) => `<span class="fact">${esc(f)}</span>`).join('');
+
+    const descEl = $('[data-desc]');
+    descEl.textContent = book.description || 'No description available for this recording.';
+    const descToggle = $('[data-desc-toggle]');
+    requestAnimationFrame(() => {
+      if (descEl.scrollHeight - descEl.clientHeight > 4) {
+        descToggle.classList.remove('hidden');
+        descToggle.addEventListener('click', () => {
+          const clamped = descEl.classList.toggle('is-clamped');
+          descToggle.textContent = clamped ? 'Read more ↓' : 'Show less ↑';
+        });
+      }
+    });
+
+    const links = [`<a href="${esc(book.detail)}" target="_blank" rel="noopener">Archive page ↗</a>`];
+    if (book.textSource)
+      links.push(`<a href="${esc(book.textSource)}" target="_blank" rel="noopener">Read the text ↗</a>`);
+    $('[data-links]').innerHTML = links.join('');
+
+    $('[data-now-book]').textContent = book.title;
+    $('[data-chapter-count]').textContent = `· ${book.chapters.length}`;
+
+    // ---- favorites ----
+    const favBtn = $('[data-fav]');
+    const favLabel = $('[data-fav-label]');
+    const favHeart = favBtn.querySelector('.fav__heart');
+    function renderFav() {
+      const on = isFavorite(book.id);
+      favBtn.classList.toggle('is-on', on);
+      favHeart.textContent = on ? '♥' : '♡';
+      favLabel.textContent = on ? 'In your favorites' : 'Add to favorites';
+    }
+    favBtn.addEventListener('click', () => {
+      toggleFavorite({ id: book.id, title: book.title, author: book.author, cover: book.cover });
+      renderFav();
+    });
+    renderFav();
+
+    // ---- chapter list ----
+    const list = $('[data-chapters]');
+    list.innerHTML = book.chapters
+      .map(
+        (c, i) => `
+        <li>
+          <button class="chapter" data-chapter-index="${i}">
+            <span class="chapter__num">${i + 1}</span>
+            <span class="chapter__title">${esc(c.title)}</span>
+            <span class="chapter__eq hidden" data-eq>♪</span>
+            <span class="chapter__len">${c.length ? formatTime(c.length) : ''}</span>
+          </button>
+        </li>`
+      )
+      .join('');
+
+    // ---- player wiring ----
+    setupPlayer(book, root);
+  }
+
+  function setupPlayer(book, root) {
+    const audio = root.querySelector('[data-audio]') as HTMLAudioElement;
+    const playBtn = root.querySelector('[data-play]');
+    const seek = root.querySelector('[data-seek]') as HTMLInputElement;
+    const curEl = root.querySelector('[data-current]');
+    const durEl = root.querySelector('[data-duration]');
+    const nowChapter = root.querySelector('[data-now-chapter]');
+    const rateBtn = root.querySelector('[data-rate]');
+    const chapterBtns = Array.from(root.querySelectorAll('[data-chapter-index]'));
+
+    const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
+    let rateIdx = 1;
+    let current = 0;       // active chapter index
+    let seeking = false;
+    let saveTimer = 0;
+
+    function highlight() {
+      chapterBtns.forEach((btn, i) => {
+        const active = i === current;
+        btn.classList.toggle('is-current', active);
+        btn.querySelector('[data-eq]').classList.toggle('hidden', !active);
+      });
+      nowChapter.textContent = book.chapters[current].title;
+    }
+
+    function loadChapter(index, { autoplay = false, position = 0 } = {}) {
+      current = Math.max(0, Math.min(index, book.chapters.length - 1));
+      audio.src = book.chapters[current].url;
+      audio.playbackRate = RATES[rateIdx];
+      highlight();
+      if (position) {
+        audio.currentTime = position; // may be re-applied on loadedmetadata below
+        pendingSeek = position;
+      } else {
+        pendingSeek = 0;
+      }
+      if (autoplay) audio.play().catch(() => {});
+      updateMediaSession();
+    }
+
+    let pendingSeek = 0;
+    audio.addEventListener('loadedmetadata', () => {
+      if (pendingSeek > 0 && Number.isFinite(audio.duration)) {
+        audio.currentTime = Math.min(pendingSeek, audio.duration - 1);
+        pendingSeek = 0;
+      }
+      durEl.textContent = formatTime(audio.duration);
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      if (!seeking && Number.isFinite(audio.duration)) {
+        seek.value = String((audio.currentTime / audio.duration) * 1000 || 0);
+        curEl.textContent = formatTime(audio.currentTime);
+      }
+      // throttle progress writes to ~once every 5s
+      const now = Date.now();
+      if (now - saveTimer > 5000) {
+        saveTimer = now;
+        persist();
+      }
+    });
+
+    audio.addEventListener('play', () => { playBtn.textContent = '❚❚'; updateMediaSession(); });
+    audio.addEventListener('pause', () => { playBtn.textContent = '▶'; persist(); });
+    audio.addEventListener('ended', () => {
+      if (current < book.chapters.length - 1) loadChapter(current + 1, { autoplay: true });
+      else persist();
+    });
+
+    // transport
+    playBtn.addEventListener('click', () => {
+      if (audio.paused) audio.play().catch(() => {});
+      else audio.pause();
+    });
+    root.querySelector('[data-prev]').addEventListener('click', () => loadChapter(current - 1, { autoplay: !audio.paused }));
+    root.querySelector('[data-next]').addEventListener('click', () => loadChapter(current + 1, { autoplay: !audio.paused }));
+    root.querySelector('[data-back]').addEventListener('click', () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
+    root.querySelector('[data-fwd]').addEventListener('click', () => { audio.currentTime = Math.min(audio.duration || Infinity, audio.currentTime + 30); });
+
+    rateBtn.addEventListener('click', () => {
+      rateIdx = (rateIdx + 1) % RATES.length;
+      audio.playbackRate = RATES[rateIdx];
+      rateBtn.textContent = `${RATES[rateIdx]}×`;
+    });
+
+    // seek bar
+    seek.addEventListener('input', () => {
+      seeking = true;
+      if (Number.isFinite(audio.duration))
+        curEl.textContent = formatTime((Number(seek.value) / 1000) * audio.duration);
+    });
+    seek.addEventListener('change', () => {
+      if (Number.isFinite(audio.duration)) audio.currentTime = (Number(seek.value) / 1000) * audio.duration;
+      seeking = false;
+    });
+
+    chapterBtns.forEach((btn, i) =>
+      btn.addEventListener('click', () => loadChapter(i, { autoplay: true }))
+    );
+
+    // persistence
+    function persist() {
+      saveProgress({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        cover: book.cover,
+        chapterIndex: current,
+        chapterTitle: book.chapters[current].title,
+        chapterCount: book.chapters.length,
+        position: Math.floor(audio.currentTime || 0),
+      });
+    }
+    window.addEventListener('beforeunload', persist);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
+
+    // Media Session (lock-screen / hardware keys)
+    function updateMediaSession() {
+      if (!('mediaSession' in navigator)) return;
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: book.chapters[current].title,
+        artist: book.author,
+        album: book.title,
+        artwork: [{ src: book.cover, sizes: '512x512', type: 'image/jpeg' }],
+      });
+      navigator.mediaSession.setActionHandler('play', () => audio.play());
+      navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+      navigator.mediaSession.setActionHandler('previoustrack', () => loadChapter(current - 1, { autoplay: true }));
+      navigator.mediaSession.setActionHandler('nexttrack', () => loadChapter(current + 1, { autoplay: true }));
+      navigator.mediaSession.setActionHandler('seekbackward', () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
+      navigator.mediaSession.setActionHandler('seekforward', () => { audio.currentTime = audio.currentTime + 30; });
+    }
+
+    // keyboard shortcuts (ignore when typing in a field)
+    document.addEventListener('keydown', (e) => {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName)) return;
+      if (e.code === 'Space') { e.preventDefault(); playBtn.click(); }
+      else if (e.code === 'ArrowLeft') { audio.currentTime = Math.max(0, audio.currentTime - 15); }
+      else if (e.code === 'ArrowRight') { audio.currentTime = audio.currentTime + 30; }
+    });
+
+    // ---- resume where the listener left off ----
+    const saved = getProgress(book.id);
+    if (saved && Number.isInteger(saved.chapterIndex)) {
+      loadChapter(saved.chapterIndex, { position: saved.position || 0 });
+    } else {
+      loadChapter(0);
+    }
+  }
+</script>

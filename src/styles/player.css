@@ -74,6 +74,52 @@
 }
 .book__links { margin-top: 16px; display: flex; gap: 18px; font-family: var(--sans); font-size: 14px; }
 
+/* ----------------------- author biography ----------------------- */
+.author-bio {
+  margin: 34px 0 0;
+  padding: 26px 28px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+.author-bio__head {
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+.author-bio__body { display: flex; gap: 22px; align-items: flex-start; }
+.author-bio__portrait {
+  width: 110px;
+  flex: 0 0 auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--paper-3);
+  box-shadow: 0 10px 20px -14px var(--shadow);
+}
+.author-bio__name {
+  font-family: var(--sans);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.author-bio__extract {
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1.7;
+  max-width: 62ch;
+  margin-bottom: 12px;
+}
+.author-bio__link { font-family: var(--sans); font-size: 14px; font-weight: 600; }
+
+@media (max-width: 560px) {
+  .author-bio__body { flex-direction: column; }
+  .author-bio__portrait { width: 96px; }
+}
+
 /* ----------------------- the player dock ----------------------- */
 .player {
   position: sticky;

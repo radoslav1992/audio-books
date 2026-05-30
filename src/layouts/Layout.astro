@@ -16,12 +16,47 @@ const isActive = (href: string) => {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) with Consent Mode v2 -->
     <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-5YF12LL7N3"></script>
     <script is:inline>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
+
+      // --- Consent Mode v2 ---------------------------------------------
+      // Storage stays denied by default in the EEA / UK / Switzerland until
+      // the visitor opts in via the cookie banner; granted elsewhere so
+      // measurement and ads keep working. GA still sends cookieless, modelled
+      // pings while denied. The banner can override either way (see footer).
+      var EEA = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                 'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                 'SI','ES','SE','IS','LI','NO','GB','CH'];
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        functionality_storage: 'denied',
+        personalization_storage: 'denied',
+        security_storage: 'granted',
+        region: EEA,
+        wait_for_update: 500
+      });
+      gtag('consent', 'default', {
+        ad_storage: 'granted',
+        ad_user_data: 'granted',
+        ad_personalization: 'granted',
+        analytics_storage: 'granted',
+        functionality_storage: 'granted',
+        personalization_storage: 'granted',
+        security_storage: 'granted'
+      });
+
+      // Re-apply a previously saved choice as early as possible.
+      try {
+        var savedConsent = JSON.parse(localStorage.getItem('ffl_consent') || 'null');
+        if (savedConsent && savedConsent.state) gtag('consent', 'update', savedConsent.state);
+      } catch (e) {}
 
       gtag('config', 'G-5YF12LL7N3');
     </script>
@@ -72,8 +107,67 @@ const isActive = (href: string) => {
         <p class="foot__credit">
           All works are in the public domain. Built as a fully client-side reading room — your favorites
           &amp; progress never leave this browser.
+          <button class="foot__settings" id="consent-reopen" type="button">Cookie settings</button>
         </p>
       </div>
     </footer>
+
+    <!-- Consent Mode v2 banner -->
+    <div class="consent hidden" id="consent" role="dialog" aria-live="polite" aria-label="Cookie consent" aria-describedby="consent-text">
+      <p class="consent__text" id="consent-text">
+        We use cookies for analytics and to support ads. With your consent we enable measurement and
+        ad personalisation; decline and only strictly-necessary storage is used.
+      </p>
+      <div class="consent__actions">
+        <button class="btn btn--ghost" type="button" data-consent="reject">Decline</button>
+        <button class="btn" type="button" data-consent="accept">Accept all</button>
+      </div>
+    </div>
+
+    <script is:inline>
+      (function () {
+        var KEY = 'ffl_consent';
+        var GRANTED = {
+          ad_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted',
+          analytics_storage: 'granted', functionality_storage: 'granted',
+          personalization_storage: 'granted', security_storage: 'granted'
+        };
+        var DENIED = {
+          ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+          analytics_storage: 'denied', functionality_storage: 'denied',
+          personalization_storage: 'denied', security_storage: 'granted'
+        };
+        var banner = document.getElementById('consent');
+        var reopen = document.getElementById('consent-reopen');
+
+        function gtagSafe() {
+          if (typeof window.gtag === 'function') window.gtag.apply(null, arguments);
+        }
+        function saved() {
+          try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; }
+        }
+        function choose(choice) {
+          var state = choice === 'accept' ? GRANTED : DENIED;
+          gtagSafe('consent', 'update', state);
+          try { localStorage.setItem(KEY, JSON.stringify({ choice: choice, state: state, ts: Date.now() })); } catch (e) {}
+          if (banner) banner.classList.add('hidden');
+        }
+
+        if (banner) {
+          banner.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-consent]');
+            if (btn) choose(btn.getAttribute('data-consent'));
+          });
+        }
+        if (reopen) {
+          reopen.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (banner) banner.classList.remove('hidden');
+          });
+        }
+        // Show the banner on first visit (no stored choice yet).
+        if (!saved() && banner) banner.classList.remove('hidden');
+      })();
+    </script>
   </body>
 </html>

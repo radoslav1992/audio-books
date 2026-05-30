@@ -3,7 +3,7 @@
   // project. There is no server code — `wrangler deploy` simply uploads the
   // built `dist/` directory and serves it from the edge.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vintage-audiobooks",
+  "name": "audio-books",
   "compatibility_date": "2025-05-30",
   "assets": {
     "directory": "./dist",

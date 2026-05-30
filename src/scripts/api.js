@@ -125,30 +125,44 @@ export async function getBook(identifier) {
   const meta = data.metadata;
   const files = Array.isArray(data.files) ? data.files : [];
 
-  // Keep only audio files, preferring the original VBR/64Kbps MP3s and
-  // de-duplicating multiple encodings of the same track.
+  // Reduce the many encodings of each section (VBR mp3, 64kb mp3, ogg,
+  // spectrogram, fingerprint…) down to one streamable file per chapter.
+  // We prefer the 64Kbps CBR MP3: it is LibriVox's streaming standard and,
+  // unlike the VBR originals, reports a reliable duration to <audio>.
   const audioExt = /\.(mp3|m4b|m4a|ogg)$/i;
-  const seen = new Set();
-  const chapters = files
-    .filter((f) => f.name && audioExt.test(f.name) && f.source !== 'metadata')
-    .filter((f) => {
-      // Collapse derivative encodings: key on the track/section identity.
-      const key = (f.title || f.name).toLowerCase() + '|' + (f.track || '');
-      // Prefer "original" source; if we've seen this track via an original
-      // already, skip derivatives.
-      const dedupeKey = key + (f.source === 'original' ? '' : '');
-      if (seen.has(key) && f.source !== 'original') return false;
-      seen.add(key);
-      return true;
-    })
-    .map((f, i) => ({
-      index: i,
-      title: f.title || prettifyFileName(f.name),
-      file: f.name,
-      track: f.track ? parseInt(String(f.track), 10) : null,
-      length: f.length ? parseLength(f.length) : null,
-      url: audioUrl(identifier, f.name),
-    }));
+  const formatScore = (name) => {
+    const n = name.toLowerCase();
+    if (/_64kb\.mp3$/.test(n)) return 5;
+    if (/\.mp3$/.test(n)) return 4;
+    if (/\.m4[ab]$/.test(n)) return 3;
+    if (/\.ogg$/.test(n)) return 2;
+    return 1;
+  };
+  // Strip a bitrate/encoding suffix + extension so a section's different
+  // encodings collapse to one key (e.g. foo_01_64kb.mp3 → foo_01).
+  const sectionBase = (name) =>
+    name
+      .toLowerCase()
+      .replace(/_(\d+kbs?|vbr)(?=\.[a-z0-9]+$)/, '')
+      .replace(/\.[a-z0-9]+$/, '');
+
+  const groups = new Map();
+  for (const f of files) {
+    if (!f.name || !audioExt.test(f.name) || f.source === 'metadata') continue;
+    const trackNum = f.track ? parseInt(String(f.track), 10) : NaN;
+    const key = Number.isFinite(trackNum) ? `t${trackNum}` : sectionBase(f.name);
+    const prev = groups.get(key);
+    if (!prev || formatScore(f.name) > formatScore(prev.name)) groups.set(key, f);
+  }
+
+  const chapters = [...groups.values()].map((f, i) => ({
+    index: i,
+    title: f.title || prettifyFileName(f.name),
+    file: f.name,
+    track: f.track ? parseInt(String(f.track), 10) : null,
+    length: f.length ? parseLength(f.length) : null,
+    url: audioUrl(identifier, f.name),
+  }));
 
   // Order by track number when available, otherwise keep file order.
   chapters.sort((a, b) => {

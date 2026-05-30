@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import '../styles/player.css';
 ---
-<Layout title="Now Playing — Foxed & Foxing">
+<Layout title="Now Playing — Fiction & Fact Library">
   <div class="wrap" id="book-root">
     <p class="loading" id="book-loading"><span class="spin">❦</span>&nbsp; Opening the book…</p>
   </div>
@@ -93,7 +93,7 @@ import '../styles/player.css';
       return;
     }
 
-    document.title = `${book.title} — Foxed & Foxing`;
+    document.title = `${book.title} — Fiction & Fact Library`;
 
     // Clone the template into the page.
     const tpl = document.getElementById('book-template') as HTMLTemplateElement;
@@ -192,6 +192,16 @@ import '../styles/player.css';
     let seeking = false;
     let saveTimer = 0;
 
+    // Archive.org streams (especially VBR MP3s) frequently report Infinity or
+    // NaN for audio.duration until fully buffered, which used to freeze the
+    // whole readout (0:00 / 0:00) and the seek bar even while audio played.
+    // Fall back to the length the Archive metadata gives us per chapter.
+    function effectiveDuration() {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration;
+      const len = book.chapters[current] && book.chapters[current].length;
+      return len && len > 0 ? len : 0;
+    }
+
     function highlight() {
       chapterBtns.forEach((btn, i) => {
         const active = i === current;
@@ -206,6 +216,11 @@ import '../styles/player.css';
       audio.src = book.chapters[current].url;
       audio.playbackRate = RATES[rateIdx];
       highlight();
+      // Show the chapter's metadata length immediately and reset the readout,
+      // so the duration is right even before (or without) audio.duration.
+      durEl.textContent = formatTime(book.chapters[current].length) || '0:00';
+      curEl.textContent = '0:00';
+      seek.value = '0';
       if (position) {
         audio.currentTime = position; // may be re-applied on loadedmetadata below
         pendingSeek = position;
@@ -218,16 +233,22 @@ import '../styles/player.css';
 
     let pendingSeek = 0;
     audio.addEventListener('loadedmetadata', () => {
-      if (pendingSeek > 0 && Number.isFinite(audio.duration)) {
-        audio.currentTime = Math.min(pendingSeek, audio.duration - 1);
+      if (pendingSeek > 0) {
+        const d = effectiveDuration();
+        audio.currentTime = d ? Math.min(pendingSeek, d - 1) : pendingSeek;
         pendingSeek = 0;
       }
-      durEl.textContent = formatTime(audio.duration);
+      durEl.textContent = formatTime(effectiveDuration());
+    });
+    // The real duration may only arrive once enough audio has buffered.
+    audio.addEventListener('durationchange', () => {
+      durEl.textContent = formatTime(effectiveDuration());
     });
 
     audio.addEventListener('timeupdate', () => {
-      if (!seeking && Number.isFinite(audio.duration)) {
-        seek.value = String((audio.currentTime / audio.duration) * 1000 || 0);
+      if (!seeking) {
+        const d = effectiveDuration();
+        seek.value = String(d ? Math.min(1000, (audio.currentTime / d) * 1000) : 0);
         curEl.textContent = formatTime(audio.currentTime);
       }
       // throttle progress writes to ~once every 5s
@@ -243,6 +264,11 @@ import '../styles/player.css';
     audio.addEventListener('ended', () => {
       if (current < book.chapters.length - 1) loadChapter(current + 1, { autoplay: true });
       else persist();
+    });
+    audio.addEventListener('error', () => {
+      if (!audio.src) return; // ignore the empty-src error before first load
+      console.error('Audio failed to load:', book.chapters[current] && book.chapters[current].url);
+      nowChapter.textContent = book.chapters[current].title + '  ·  unavailable — try another chapter';
     });
 
     // transport
@@ -264,11 +290,12 @@ import '../styles/player.css';
     // seek bar
     seek.addEventListener('input', () => {
       seeking = true;
-      if (Number.isFinite(audio.duration))
-        curEl.textContent = formatTime((Number(seek.value) / 1000) * audio.duration);
+      const d = effectiveDuration();
+      if (d) curEl.textContent = formatTime((Number(seek.value) / 1000) * d);
     });
     seek.addEventListener('change', () => {
-      if (Number.isFinite(audio.duration)) audio.currentTime = (Number(seek.value) / 1000) * audio.duration;
+      const d = effectiveDuration();
+      if (d) audio.currentTime = (Number(seek.value) / 1000) * d;
       seeking = false;
     });
 

@@ -28,6 +28,19 @@ import '../styles/player.css';
       </div>
     </article>
 
+    <!-- Author biography, filled in from Wikipedia once it loads -->
+    <section class="author-bio hidden wrap" data-author-bio aria-label="About the author">
+      <h3 class="author-bio__head">About the author</h3>
+      <div class="author-bio__body">
+        <img class="author-bio__portrait hidden" data-bio-portrait alt="" />
+        <div class="author-bio__text">
+          <p class="author-bio__name" data-bio-name></p>
+          <p class="author-bio__extract" data-bio-extract></p>
+          <a class="author-bio__link" data-bio-link target="_blank" rel="noopener">Read more on Wikipedia ↗</a>
+        </div>
+      </div>
+    </section>
+
     <section class="player" data-player aria-label="Audio player">
       <div class="player__now">
         <span class="player__chapter" data-now-chapter>—</span>
@@ -63,6 +76,7 @@ import '../styles/player.css';
 
 <script>
   import { getBook, formatTime } from '../scripts/api.js';
+  import { fetchAuthorBio } from '../scripts/wikipedia.js';
   import { esc, FALLBACK_COVER } from '../scripts/ui.js';
   import {
     isFavorite,
@@ -174,6 +188,41 @@ import '../styles/player.css';
 
     // ---- player wiring ----
     setupPlayer(book, root);
+
+    // ---- author biography (Wikipedia, best-effort) ----
+    renderAuthorBio(book.author, root);
+  }
+
+  // Fetch a short author biography for historical context and reveal the
+  // section only if Wikipedia returns something useful — otherwise it stays
+  // hidden so a missing or ambiguous author never leaves a broken panel.
+  async function renderAuthorBio(author, root) {
+    const section = root.querySelector('[data-author-bio]');
+    if (!section) return;
+    let bio;
+    try {
+      bio = await fetchAuthorBio(author);
+    } catch (err) {
+      console.warn(err);
+      return;
+    }
+    if (!bio) return;
+
+    const portrait = section.querySelector('[data-bio-portrait]') as HTMLImageElement;
+    if (bio.thumbnail) {
+      portrait.src = bio.thumbnail;
+      portrait.alt = `Portrait of ${bio.title}`;
+      portrait.classList.remove('hidden');
+      portrait.onerror = () => { portrait.onerror = null; portrait.classList.add('hidden'); };
+    }
+
+    const nameParts = [bio.title];
+    if (bio.description) nameParts.push(bio.description);
+    section.querySelector('[data-bio-name]').textContent = nameParts.join(' · ');
+    section.querySelector('[data-bio-extract]').textContent = bio.extract;
+    (section.querySelector('[data-bio-link]') as HTMLAnchorElement).href = bio.url;
+
+    section.classList.remove('hidden');
   }
 
   function setupPlayer(book, root) {

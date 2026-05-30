@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 
-const { title = 'Foxed & Foxing — Vintage Audiobooks', description = 'A vintage reading room of free public-domain audiobooks: classic literature read aloud by LibriVox volunteers, paired with Project Gutenberg texts. Listen in your browser — no account needed.' } = Astro.props;
+const { title = 'Fiction & Fact Library — Free Classic Audiobooks', description = 'A vintage reading room of free public-domain audiobooks — fiction and fact alike — read aloud by LibriVox volunteers and paired with Project Gutenberg texts. Listen in your browser, no account needed.' } = Astro.props;
 const base = import.meta.env.BASE_URL;
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const baseClean = base.replace(/\/$/, '');
@@ -31,9 +31,9 @@ const isActive = (href: string) => {
   <body>
     <header class="masthead">
       <div class="masthead__inner">
-        <a class="brand" href={base} aria-label="Home">
+        <a class="brand" href={base} aria-label="Fiction & Fact Library — Home">
           <span class="brand__mark">❦</span>
-          <span class="brand__name">Foxed<b>&amp;</b>Foxing</span>
+          <span class="brand__name">Fiction <b>&amp;</b> Fact <span class="brand__lib">Library</span></span>
         </a>
         <nav class="nav">
           <a href={base} class={isActive('/')}>Library</a>

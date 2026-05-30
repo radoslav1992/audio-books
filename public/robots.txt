@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fictionandfactlibrary.com/sitemap-index.xml

@@ -1,4 +1,4 @@
-# 📖 Foxed & Foxing — Vintage Audiobooks
+# 📖 Fiction & Fact Library — Vintage Audiobooks
 
 A completely client-side audiobook player for the world's public-domain
 literature, dressed in a warm, antiquarian-library aesthetic (cream paper,

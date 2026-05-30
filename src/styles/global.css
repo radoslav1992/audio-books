@@ -119,6 +119,11 @@ img { display: block; max-width: 100%; }
   letter-spacing: 0.01em;
 }
 .brand__name b { color: var(--accent); font-weight: 900; }
+.brand__lib { color: var(--ink); }
+@media (max-width: 420px) {
+  .brand__name { font-size: 19px; }
+  .brand__lib { display: none; } /* shorten to "Fiction & Fact" on tiny screens */
+}
 .nav { display: flex; align-items: center; gap: 6px; }
 .nav a {
   font-family: var(--sans);

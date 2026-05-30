@@ -1,0 +1,15 @@
+{
+  // Deploy this static Astro site to Cloudflare as a Workers Static Assets
+  // project. There is no server code — `wrangler deploy` simply uploads the
+  // built `dist/` directory and serves it from the edge.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vintage-audiobooks",
+  "compatibility_date": "2025-05-30",
+  "assets": {
+    "directory": "./dist",
+    // Astro emits pretty-URL folders (e.g. /book/index.html), so serve
+    // directory indexes and fall back to a 404 asset when nothing matches.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

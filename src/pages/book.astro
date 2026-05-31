@@ -24,6 +24,7 @@ import '../styles/player.css';
         <div class="book__facts" data-facts></div>
         <p class="book__desc is-clamped" data-desc></p>
         <button class="desc-toggle hidden" data-desc-toggle>Read more ↓</button>
+        <p class="book__desc-src hidden" data-desc-src></p>
         <div class="book__links" data-links></div>
       </div>
     </article>
@@ -77,7 +78,7 @@ import '../styles/player.css';
 
 <script>
   import { getBook, formatTime } from '../scripts/api.js';
-  import { fetchAuthorBio, normalizeAuthor, authorSearchUrl } from '../scripts/wikipedia.js';
+  import { fetchAuthorBio, fetchBookSummary, normalizeAuthor, authorSearchUrl } from '../scripts/wikipedia.js';
   import { esc, FALLBACK_COVER } from '../scripts/ui.js';
   import {
     isFavorite,
@@ -135,17 +136,41 @@ import '../styles/player.css';
     $('[data-facts]').innerHTML = facts.map((f) => `<span class="fact">${esc(f)}</span>`).join('');
 
     const descEl = $('[data-desc]');
-    descEl.textContent = book.description || 'No description available for this recording.';
     const descToggle = $('[data-desc-toggle]');
-    requestAnimationFrame(() => {
-      if (descEl.scrollHeight - descEl.clientHeight > 4) {
-        descToggle.classList.remove('hidden');
-        descToggle.addEventListener('click', () => {
-          const clamped = descEl.classList.toggle('is-clamped');
-          descToggle.textContent = clamped ? 'Read more ↓' : 'Show less ↑';
-        });
-      }
+    const descSrc = $('[data-desc-src]');
+
+    // Set the description text and (re)wire the clamp / "Read more" toggle so
+    // it works whether we show the LibriVox blurb or swap in the Wikipedia one.
+    function applyDescription(text) {
+      descEl.textContent = text;
+      descEl.classList.add('is-clamped');
+      descToggle.classList.add('hidden');
+      descToggle.textContent = 'Read more ↓';
+      requestAnimationFrame(() => {
+        if (descEl.scrollHeight - descEl.clientHeight > 4) {
+          descToggle.classList.remove('hidden');
+        } else {
+          descEl.classList.remove('is-clamped');
+        }
+      });
+    }
+    descToggle.addEventListener('click', () => {
+      const clamped = descEl.classList.toggle('is-clamped');
+      descToggle.textContent = clamped ? 'Read more ↓' : 'Show less ↑';
     });
+
+    // Show the LibriVox description immediately, then prefer a Wikipedia
+    // summary of the book if a confident match turns up.
+    applyDescription(book.description || 'No description available for this recording.');
+    fetchBookSummary(book.title, book.author)
+      .then((wiki) => {
+        if (!wiki) return;
+        applyDescription(wiki.extract);
+        descSrc.innerHTML =
+          `From <a href="${esc(wiki.url)}" target="_blank" rel="noopener">Wikipedia: ${esc(wiki.title)} ↗</a>`;
+        descSrc.classList.remove('hidden');
+      })
+      .catch((err) => console.warn(err));
 
     const links = [`<a href="${esc(book.detail)}" target="_blank" rel="noopener">Archive page ↗</a>`];
     if (book.textSource)

@@ -31,7 +31,8 @@ import '../styles/player.css';
     <!-- Author biography, filled in from Wikipedia once it loads -->
     <section class="author-bio hidden wrap" data-author-bio aria-label="About the author">
       <h3 class="author-bio__head">About the author</h3>
-      <div class="author-bio__body">
+      <p class="author-bio__loading" data-bio-loading>Looking up the author on Wikipedia…</p>
+      <div class="author-bio__body hidden" data-bio-body>
         <img class="author-bio__portrait hidden" data-bio-portrait alt="" />
         <div class="author-bio__text">
           <p class="author-bio__name" data-bio-name></p>
@@ -76,7 +77,7 @@ import '../styles/player.css';
 
 <script>
   import { getBook, formatTime } from '../scripts/api.js';
-  import { fetchAuthorBio } from '../scripts/wikipedia.js';
+  import { fetchAuthorBio, normalizeAuthor, authorSearchUrl } from '../scripts/wikipedia.js';
   import { esc, FALLBACK_COVER } from '../scripts/ui.js';
   import {
     isFavorite,
@@ -193,36 +194,54 @@ import '../styles/player.css';
     renderAuthorBio(book.author, root);
   }
 
-  // Fetch a short author biography for historical context and reveal the
-  // section only if Wikipedia returns something useful — otherwise it stays
-  // hidden so a missing or ambiguous author never leaves a broken panel.
+  // Show an "About the author" panel with a short Wikipedia biography for
+  // historical context. The panel is skipped only when there is no real
+  // author to look up; when the lookup finds nothing (or the network fails)
+  // it falls back to a "Search Wikipedia" link so the feature is always
+  // visible and useful rather than silently disappearing.
   async function renderAuthorBio(author, root) {
     const section = root.querySelector('[data-author-bio]');
     if (!section) return;
-    let bio;
+    // Nothing to look up for "Unknown author" and the like.
+    if (!normalizeAuthor(author)) return;
+
+    const loading = section.querySelector('[data-bio-loading]');
+    const body = section.querySelector('[data-bio-body]');
+    const link = section.querySelector('[data-bio-link]') as HTMLAnchorElement;
+    section.classList.remove('hidden');
+
+    let bio = null;
     try {
       bio = await fetchAuthorBio(author);
     } catch (err) {
       console.warn(err);
-      return;
-    }
-    if (!bio) return;
-
-    const portrait = section.querySelector('[data-bio-portrait]') as HTMLImageElement;
-    if (bio.thumbnail) {
-      portrait.src = bio.thumbnail;
-      portrait.alt = `Portrait of ${bio.title}`;
-      portrait.classList.remove('hidden');
-      portrait.onerror = () => { portrait.onerror = null; portrait.classList.add('hidden'); };
     }
 
-    const nameParts = [bio.title];
-    if (bio.description) nameParts.push(bio.description);
-    section.querySelector('[data-bio-name]').textContent = nameParts.join(' · ');
-    section.querySelector('[data-bio-extract]').textContent = bio.extract;
-    (section.querySelector('[data-bio-link]') as HTMLAnchorElement).href = bio.url;
+    if (bio) {
+      const portrait = section.querySelector('[data-bio-portrait]') as HTMLImageElement;
+      if (bio.thumbnail) {
+        portrait.src = bio.thumbnail;
+        portrait.alt = `Portrait of ${bio.title}`;
+        portrait.classList.remove('hidden');
+        portrait.onerror = () => { portrait.onerror = null; portrait.classList.add('hidden'); };
+      }
+      const nameParts = [bio.title];
+      if (bio.description) nameParts.push(bio.description);
+      section.querySelector('[data-bio-name]').textContent = nameParts.join(' · ');
+      section.querySelector('[data-bio-extract]').textContent = bio.extract;
+      link.href = bio.url;
+      link.textContent = 'Read more on Wikipedia ↗';
+    } else {
+      // No summary found — offer a search link so the panel still helps.
+      section.querySelector('[data-bio-name]').textContent = author;
+      section.querySelector('[data-bio-extract]').textContent =
+        'No Wikipedia biography was found automatically for this author.';
+      link.href = authorSearchUrl(author);
+      link.textContent = 'Search Wikipedia ↗';
+    }
 
-    section.classList.remove('hidden');
+    loading.classList.add('hidden');
+    body.classList.remove('hidden');
   }
 
   function setupPlayer(book, root) {

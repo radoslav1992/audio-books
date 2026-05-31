@@ -54,6 +54,15 @@ export function cleanDescription(desc) {
   if (!desc) return '';
   let text = Array.isArray(desc) ? desc.join(' ') : String(desc);
   text = text.replace(/<[^>]+>/g, ' ');
+  text = text.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&');
+  text = text.replace(/\s+/g, ' ').trim();
+  // LibriVox items embed a download table in their description HTML; once the
+  // tags are stripped its link text survives as junk like "Download M4B
+  // (17MB)" / "Download MP3" / "Download cover art". Remove those remnants.
+  text = text.replace(/Download\s+[A-Za-z0-9 .]*?\(\s*[\d.]+\s*[KMGT]B\s*\)/gi, ' ');
+  text = text.replace(/Download\s+(?:M4B|MP3|Ogg(?:\s+Vorbis)?|cover\s+art|zip\s+file|torrent)\b/gi, ' ');
+  // Drop the standard LibriVox catalog-page footer, if present.
+  text = text.replace(/For (?:further|more) information[^.]*?LibriVox[^.]*?\.\s*/gi, '');
   text = text.replace(/\s+/g, ' ').trim();
   // Drop the standard "(Summary by ...)" attribution tail if present.
   text = text.replace(/\(?Summary by [^).]*\)?\.?\s*$/i, '').trim();

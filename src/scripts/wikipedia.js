@@ -43,6 +43,12 @@ export function normalizeAuthor(author) {
   return name.replace(/\s+/g, ' ').trim();
 }
 
+/** A Wikipedia search URL for an author — the always-works fallback link. */
+export function authorSearchUrl(author) {
+  const name = normalizeAuthor(author) || String(author || '').trim();
+  return `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
+}
+
 /** Resolve a free-text author name to Wikipedia's canonical page title. */
 async function resolveTitle(name) {
   const params = new URLSearchParams({ q: name, limit: '1' });

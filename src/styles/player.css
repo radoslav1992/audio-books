@@ -87,6 +87,7 @@
   font-size: 22px;
   margin-bottom: 16px;
 }
+.author-bio__loading { font-family: var(--sans); font-size: 14px; color: var(--muted); }
 .author-bio__body { display: flex; gap: 22px; align-items: flex-start; }
 .author-bio__portrait {
   width: 110px;

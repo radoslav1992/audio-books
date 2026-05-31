@@ -72,6 +72,7 @@
   padding: 6px 0;
   letter-spacing: 0.04em;
 }
+.book__desc-src { margin-top: 8px; font-family: var(--sans); font-size: 13px; color: var(--muted); }
 .book__links { margin-top: 16px; display: flex; gap: 18px; font-family: var(--sans); font-size: 14px; }
 
 /* ----------------------- author biography ----------------------- */
